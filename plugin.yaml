@@ -1,0 +1,3 @@
+name: reviews
+version: 0.3.0
+description: The PR review queue — review-queue and codeowner-review skills, a Reviews page with live GitHub state and triage, and a no-LLM watcher

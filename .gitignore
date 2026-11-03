@@ -1,0 +1,4 @@
+__pycache__/
+.DS_Store
+# A global excludes file may ignore scripts/; this repo ships its scripts.
+!scripts/

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The no-LLM watcher, hourly. Rendered and loaded by scripts/install.sh (placeholders: __HOME__, __PLUGIN__). -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.hermes-reviews.watch</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>__PLUGIN__/scripts/rq-watch.py</string>
+    <string>--archive</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>3600</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>__HOME__/review-queue/logs/watch.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/review-queue/logs/watch.err</string>
+</dict>
+</plist>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The daily headless /review-queue run (queue/run.sh), 09:00, at login and on wake. Rendered by scripts/install.sh. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.hermes-reviews.daily</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__HOME__/review-queue/run.sh</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>9</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>__HOME__/review-queue/logs/launchd.out</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/review-queue/logs/launchd.err</string>
+</dict>
+</plist>

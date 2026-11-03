@@ -1,0 +1,9 @@
+{
+  "name": "reviews",
+  "label": "Reviews",
+  "description": "The review-queue skill's PR review drafts, from ~/review-queue, with live GitHub state and triage (merged / dismiss / posted)",
+  "icon": "GitPullRequest",
+  "version": "0.3.0",
+  "tab": { "path": "/reviews", "hidden": true },
+  "api": "plugin_api.py"
+}
