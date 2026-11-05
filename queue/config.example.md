@@ -8,4 +8,5 @@ reads it at the start of every run; it is never committed.
 - My GitHub login: `<login>`
 - My Jira name: `<display name>`
 - JQL: `project = <KEY> AND status in ("In Review") AND issuetype not in (Epic, Story, Spike) ORDER BY updated DESC`
+- CO status: `"Codeowner Review"` (the Jira status `/review-queue run co` is limited to)
 - Extra sensitive areas: `<services or paths that always get the deepest review>`

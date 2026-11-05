@@ -8,7 +8,7 @@ Everything the PR review queue needs, in one Hermes plugin:
   and lets you triage the queue;
 - **`rq-watch`**, an hourly watcher that uses no LLM: it archives reviews whose PR merged or closed, and tells you
   when a draft went stale;
-- the daily headless run (`queue/run.sh`) and the launchd jobs that schedule both.
+- the headless run (`queue/run.sh`), started on demand from the Reviews page ("Run the reviews", "Run codeowner review only"), and the launchd job for the watcher. Nothing runs reviews on a schedule.
 
 Your org's values (Jira cloudId, ticket JQL, GitHub org and login) live in `~/review-queue/config.md`, and team-specific
 review rules in an optional `~/review-queue/conventions.md`. Neither is in this repo; `install.sh` seeds the config
@@ -27,8 +27,7 @@ Then restart Hermes Desktop (or the gateway) and turn the Desktop half on in Cap
 
 `install.sh` is idempotent. It checks `gh` and the `claude` CLI, links both skills into `~/.claude/skills` for Claude
 Code (an existing copy is moved to `~/.claude/skills/.trash`), creates `~/review-queue` with `run.sh` and `config.md`, enables the
-plugin, and with `--schedule` loads the launchd jobs: the daily run (skipped when an older job already runs
-`~/review-queue/run.sh`) and the watcher. `install.sh --check` reports what is missing without changing anything.
+plugin, and with `--schedule` loads the hourly watcher (launchd). `install.sh --check` reports what is missing without changing anything.
 
 Hermes loads the skills from the plugin as `reviews:review-queue` and `reviews:codeowner-review`; Claude Code sees
 the same files through the links. One copy, so a fix lands in both.
@@ -93,8 +92,8 @@ concurrent headless run's work is never overwritten with a stale copy.
 | `dashboard/plugin_api.py` | The backend under `/api/plugins/reviews`: `GET /queue`, `/draft?key=`, `/live[?refresh=1]`, `/chat?key=`, `POST /status {keys, status, reason?}` |
 | `scripts/rq-watch.py` | The no-LLM watcher |
 | `scripts/install.sh` | Machine setup (skills, queue folder, plugin, launchd) |
-| `scripts/launchd/` | The two launchd job templates |
-| `queue/run.sh` | The daily headless `/review-queue run` |
+| `scripts/launchd/` | The launchd job template for the watcher |
+| `queue/run.sh` | The headless `/review-queue run [co]`, on demand |
 | `__init__.py`, `plugin.yaml`, `dashboard/manifest.json` | What Hermes needs to register the skills and mount the page |
 
 Environment: `REVIEW_DIR` overrides the folder (default `~/review-queue`); `REVIEW_GH_OWNER` is the GitHub owner used

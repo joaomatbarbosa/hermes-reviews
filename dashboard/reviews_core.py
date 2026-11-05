@@ -535,3 +535,61 @@ def chat_info(key: str) -> dict:
     cmd = f"cd {quoted} && claude --resume {sid}" if quoted_cwd else f"claude --resume {sid}"
     return {"id": sid, "found": True, "cwd": cwd, "cwdExists": exists, "command": cmd,
             "updatedAt": datetime.fromtimestamp(hits[0].stat().st_mtime, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+
+
+# ── on-demand runs ──────────────────────────────────────────────────────────────────────────
+
+RUN_SCOPES = {"all": [], "co": ["--scope", "co"]}
+_run_proc: subprocess.Popen | None = None
+
+
+def _run_file(base: Path) -> Path:
+    return base / ".running.json"
+
+
+def _alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def run_status() -> dict:
+    """Whether a `run.sh` started from the page (or by hand through the same pid file) is still going."""
+    global _run_proc
+    base = review_dir()
+    if _run_proc is not None and _run_proc.poll() is not None:
+        _run_proc = None
+    try:
+        info = json.loads(_read(_run_file(base)) or "null")
+    except ValueError:
+        info = None
+    if info and (_run_proc is not None or _alive(int(info.get("pid", 0)))):
+        return {"running": True, "scope": info.get("scope"), "startedAt": info.get("startedAt")}
+    _run_file(base).unlink(missing_ok=True)
+    return {"running": False}
+
+
+def run_start(scope: str) -> dict:
+    """Start `run.sh` detached: a full run, or `co` for the codeowner review status only. One at a time."""
+    global _run_proc
+    if scope not in RUN_SCOPES:
+        raise ValueError(f"unknown scope: {scope}")
+    base = review_dir()
+    script = base / "run.sh"
+    if not script.is_file():
+        raise LookupError(f"{script} not found: run scripts/install.sh")
+    st = run_status()
+    if st["running"]:
+        raise ValueError(f"a {st['scope']} run is already in progress")
+    log = base / "logs"
+    log.mkdir(parents=True, exist_ok=True)
+    with open(log / "launch.out", "ab") as out:
+        _run_proc = subprocess.Popen(
+            ["/bin/bash", str(script), *RUN_SCOPES[scope]],
+            cwd=str(base), stdout=out, stderr=out, stdin=subprocess.DEVNULL, start_new_session=True,
+        )
+    started = _now()
+    _write_atomic(_run_file(base), json.dumps({"pid": _run_proc.pid, "scope": scope, "startedAt": started}))
+    return {"running": True, "scope": scope, "startedAt": started}

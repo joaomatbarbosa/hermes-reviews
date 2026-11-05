@@ -2,7 +2,8 @@
 
 Reads: `GET /queue`, `GET /draft?key=`, `GET /live[?refresh=1]` (GitHub state of the open entries, cached),
 `GET /chat?key=` (the PR's Claude Code review session and the command that resumes it).
-Writes, and only this: `POST /status {keys, status, reason?}`. See reviews_core.apply_status.
+Writes: `POST /status {keys, status, reason?}` (see reviews_core.apply_status) and `POST /run {scope}`,
+which starts ~/review-queue/run.sh (`all`, or `co` for the codeowner review status only); `GET /run` says if one is going.
 """
 from __future__ import annotations
 
@@ -72,3 +73,17 @@ class StatusBody(BaseModel):
 @router.post("/status")
 async def set_status(body: StatusBody):
     return {"changed": _http(core.apply_status, body.keys, body.status, body.reason)}
+
+
+class RunBody(BaseModel):
+    scope: str = "all"
+
+
+@router.get("/run")
+async def run_state():
+    return core.run_status()
+
+
+@router.post("/run")
+async def run_now(body: RunBody):
+    return _http(core.run_start, body.scope)

@@ -5,7 +5,7 @@ description: >
   (tickets in review on your board), finds their open PRs, triages them by risk, and drafts reviews with codeowner-review. Drafts are NEVER posted without the
   user's explicit approval. Use when the user says "/review-queue", "review queue", "what's in my
   review queue", "post the review for <repo>#<n>", or "discard <repo>#<n>". `/review-queue run` is
-  the headless daily mode invoked by the launchd job.
+  the headless mode `run.sh` starts on demand (the Reviews page buttons). `/review-queue run co` is the same, limited to the codeowner review status.
 ---
 
 # Review Queue
@@ -33,7 +33,9 @@ Data lives in `~/review-queue/`:
 
 ---
 
-## Mode 1: `run` (headless, daily)
+## Mode 1: `run` and `run co` (headless, on demand)
+
+`run` takes the whole `<jql>`. `run co` takes only the tickets in the codeowner review status: in `<jql>`, replace the `status in (...)` clause with `status = <coStatus>` (`CO status` in `config.md`, default `"Codeowner Review"`) and change nothing else. Everything below applies to both; a `co` run leaves the entries of other tickets in `state.json` untouched and writes its own `latest.md`, whose first line says `Scope: codeowner review only`.
 
 You are running unattended. **Never post, approve, comment, push, or transition anything on GitHub or Jira.** Read-only `gh` calls only. Always use `gh api --method GET ...` for API reads. Only write files under `~/review-queue/`, using the Write and Edit tools (never shell redirection).
 

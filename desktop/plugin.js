@@ -237,6 +237,18 @@ function Markdown({ text, openLink }) {
 const useQueue = (ctx, every = 30_000) => useQuery({ queryKey: [ctx.source, 'queue'], queryFn: () => ctx.rest('/queue'), refetchInterval: every })
 const useLive = ctx => useQuery({ queryKey: [ctx.source, 'live'], queryFn: () => ctx.rest('/live', { timeoutMs: 90_000 }), refetchInterval: 300_000, staleTime: 60_000, retry: 1 })
 
+const useRun = ctx => useQuery({ queryKey: [ctx.source, 'run'], queryFn: () => ctx.rest('/run'), refetchInterval: q => (q.state.data?.running ? 4_000 : 30_000) })
+
+async function startRun(ctx, scope) {
+  try {
+    const st = await ctx.rest('/run', { method: 'POST', body: { scope } })
+    queryClient.setQueryData([ctx.source, 'run'], st)
+    host.notify({ kind: 'info', message: scope === 'co' ? 'Reviewing the codeowner review column…' : 'Running the reviews…' })
+  } catch (err) {
+    host.notify({ kind: 'error', message: `Could not start the run: ${err?.message || err}` })
+  }
+}
+
 const refreshAll = ctx => queryClient.invalidateQueries({ queryKey: [ctx.source] })
 
 async function refreshLive(ctx) {
@@ -692,7 +704,10 @@ function ReviewsPage({ ctx }) {
 
   return h('div', { ref: rootRef, style: { display: 'grid', gridTemplateColumns: '360px minmax(0, 1fr)', height: '100%', minHeight: 0 } },
     h('div', { style: { display: 'flex', flexDirection: 'column', minHeight: 0, borderRight: `1px solid ${T.line}` } },
-      h('div', { style: { display: 'flex', alignItems: 'center', gap: 4, padding: '10px 10px 6px 12px', fontSize: 11, color: T.t3 } },
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, padding: '10px 10px 0 12px' } },
+        h(IconBtn, { icon: running ? 'sync' : 'play', color: T.accent, disabled: running, title: 'Review every ticket in review on the board', onClick: () => startRun(ctx, 'all') }, running && run.data.scope === 'all' ? 'Running…' : 'Run the reviews'),
+        h(IconBtn, { icon: running ? 'sync' : 'play', color: T.accent, disabled: running, title: 'Review only the tickets in the codeowner review column', onClick: () => startRun(ctx, 'co') }, running && run.data.scope === 'co' ? 'Running…' : 'Run codeowner review only')),
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 4, padding: '8px 10px 6px 12px', fontSize: 11, color: T.t3 } },
         h('span', { title: SHORTCUTS, style: { flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
           `${pending} pending${stale ? ` · ${stale} stale` : ''} · ${entries.length - entries.filter(e => e.status === 'pending').length} archived`, liveNote ? ` · ${liveNote}` : ''),
         h(IconBtn, { icon: 'refresh', title: 'Re-check GitHub (r)', onClick: () => refreshLive(ctx) }),

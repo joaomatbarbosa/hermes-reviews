@@ -2,7 +2,7 @@
 # Set up hermes-reviews on this machine. Safe to re-run: every step checks before it changes anything.
 #
 #   scripts/install.sh              skills for Claude Code + the ~/review-queue folder + enable the Hermes plugin
-#   scripts/install.sh --schedule   also the launchd jobs: the daily /review-queue run and the hourly no-LLM watcher
+#   scripts/install.sh --schedule   also the hourly no-LLM watcher (launchd). Reviews run on demand, never on a schedule
 #   scripts/install.sh --check      report what is missing, change nothing
 #
 # Run it from the plugin's own checkout (a clone in ~/.hermes/plugins/reviews, or a checkout linked there).
@@ -35,7 +35,7 @@ echo "hermes-reviews at $PLUGIN"
 
 echo "Prerequisites"
 command -v gh >/dev/null && gh auth status >/dev/null 2>&1 && ok "gh is logged in" || todo "gh missing or not logged in (brew install gh && gh auth login)"
-command -v claude >/dev/null && ok "claude CLI found (runs the daily review)" || todo "claude CLI not found (the daily headless run needs Claude Code)"
+command -v claude >/dev/null && ok "claude CLI found (runs the reviews)" || todo "claude CLI not found (the headless run needs Claude Code)"
 command -v hermes >/dev/null && ok "hermes CLI found" || say "hermes CLI not found: enable the plugin from Hermes Desktop instead"
 
 echo "Skills"
@@ -114,12 +114,9 @@ load_job() {
 
 echo "Schedule"
 if [[ "$SCHEDULE" == 1 || "$MODE" == "check" ]]; then
-  # An older job that already runs ~/review-queue/run.sh counts as the daily run; don't add a second one.
-  existing="$(grep -l "review-queue/run.sh" "$LAUNCH"/*.plist 2>/dev/null | grep -v com.hermes-reviews.daily || true)"
-  if [[ -n "$existing" ]]; then ok "daily run already scheduled by $(basename "$existing")"; else load_job com.hermes-reviews.daily; fi
   load_job com.hermes-reviews.watch
 else
-  say "skipped (pass --schedule for the daily run and the hourly watcher)"
+  say "skipped (pass --schedule for the hourly watcher)"
 fi
 
 if [[ "$MODE" == "check" ]]; then
