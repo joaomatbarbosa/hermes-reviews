@@ -324,7 +324,7 @@ def _write_atomic(path: Path, text: str) -> None:
 
 
 def _topic(body: str) -> str:
-    words = re.sub(r"^\s*nit:\s*", "", re.sub(r"[`*_]", "", body), flags=re.I).split()
+    words = re.sub(r"^\s*(?:nit|minor|major|blocker):\s*", "", re.sub(r"[`*_]", "", body), flags=re.I).split()
     return " ".join(words[:6])
 
 

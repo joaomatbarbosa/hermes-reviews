@@ -178,6 +178,7 @@ Channel the real reviewers:
 - **Suggest, don't just criticise.** For every problem, either show a better approach or ask a clarifying question that might reveal the right one.
 - **Separate blocking from non-blocking clearly.** These codeowners approve to unblock when the PR is mostly right and the outstanding issues are non-critical — but they always note what still needs work.
 - **Match formality to severity.** A blocker gets a structured explanation. A nit gets a one-liner or a `suggestion` block.
+- **Comments are plain language, never labelled.** In text meant to be posted, do not prefix with `nit:`, `minor:`, `major:`, `blocker:` or an id (`M1`). Say what happens, why it matters and what you want, and state whether it blocks the merge when that isn't obvious. Severity labels and ids belong in the report for the reader, not in the comment. The comment must be crystal clear to someone who has not seen the report.
 - **"Nit" is for real nits.** Don't call something a nit if it's a latent bug or a principle violation. Be honest about severity.
 - **Ask when unclear.** "I'm not sure this is the intended behaviour — does the test reflect what you want, or is the implementation correct?" is better than a silent approval.
 - **Acknowledge what's good.** If the overall structure is clean, say so briefly. These reviewers do this — it signals that you've read the whole thing.
