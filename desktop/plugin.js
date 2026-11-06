@@ -355,6 +355,46 @@ async function copyResume(ctx, key) {
   host.notify({ kind: ok ? 'info' : 'error', message: ok ? `Copied: paste it in a terminal to resume the review chat${where}` : 'Clipboard unavailable', detail: info.command })
 }
 
+// The Hermes chat that discusses one review: opened again from the board, so pushback and "he addressed it, can we merge?" stay in one thread.
+const sessionPrompt = (r, path) =>
+  `This chat is the standing discussion of ${r.key}${r.url ? ` (${r.url})` : ''}. Load the ${SKILL} skill and read the draft ${path}${r.head ? ` (it reviewed head ${r.head})` : ''}, then check the PR's live state with gh: new commits since that head, which review threads are resolved, CI, approvals. Reply with a short status and wait. I will push back on findings or ask whether it can merge. Never post a review, resolve a thread or merge without my explicit go-ahead.`
+
+async function openReviewSession(ctx, r, path) {
+  if (r.session) {
+    try {
+      await host.openSession(r.session)
+      return
+    } catch (err) {
+      host.notify({ kind: 'info', message: 'The linked chat is gone; starting a new review session' })
+    }
+  }
+  const before = host.state.focusedStoredSessionId?.get?.() ?? null
+  host.newChat()
+  let sent = false
+  for (let i = 0; i < 24 && !sent; i++) {
+    await sleep(250)
+    try { sent = !!(await host.composer?.setDraft(null, sessionPrompt(r, path))) } catch {}
+  }
+  if (!sent || !host.composer.submit(null, sessionPrompt(r, path))) {
+    host.notify({ kind: 'error', message: 'Could not start the review session' })
+    return
+  }
+  for (let i = 0; i < 80; i++) {
+    await sleep(250)
+    const id = host.state.focusedStoredSessionId?.get?.() ?? null
+    if (id && id !== before) {
+      try {
+        await ctx.rest('/session', { method: 'POST', body: { key: r.key, session: id } })
+        await refreshAll(ctx)
+      } catch (err) {
+        host.notify({ kind: 'error', message: `Could not link the session: ${err?.message || err}` })
+      }
+      return
+    }
+  }
+  host.notify({ kind: 'error', message: 'The chat started but its session could not be linked' })
+}
+
 const postPrompt = (r, path) =>
   `Load the ${SKILL} skill and follow its Mode 2 "post", for ${r.key}. The draft is ${path}. Check the PR head still matches the draft, then show me the exact review body and inline comments before posting anything.`
 const rereviewPrompt = (r, path, lv) =>
@@ -556,6 +596,7 @@ function Detail({ ctx, k, lv, asking, setAsking }) {
           h('span', { style: { width: 1, margin: '4px 4px', background: T.line } }),
           r.url ? h(IconBtn, { icon: 'link-external', title: 'Open PR (o)', onClick: () => openLink(r.url) }, 'Open PR') : null,
           r.status === 'pending' && path ? h(IconBtn, { icon: 'comment-discussion', title: 'Start a chat that posts this review through the skill (you confirm the text first)', onClick: () => openInChat(ctx, postPrompt(r, path)) }, 'Post in chat') : null,
+          path ? h(IconBtn, { icon: 'comment-discussion', title: r.session ? 'Reopen the Hermes chat that discusses this review' : 'Start a Hermes chat for this review: push back, check follow-ups, ask if it can merge', onClick: () => openReviewSession(ctx, r, path) }, r.session ? 'Open review session' : 'Start review session') : null,
           r.chat ? h(IconBtn, { icon: 'terminal', title: 'Copy the command that resumes the Claude Code session this review came from', onClick: () => copyResume(ctx, k) }, 'Review chat') : null,
           h(IconBtn, { icon: 'copy', title: 'Copy draft path', onClick: () => ctx.os.writeClipboard(path).then(ok => host.notify({ kind: ok ? 'info' : 'error', message: ok ? 'Draft path copied' : 'Clipboard unavailable' })) }),
           h(IconBtn, { icon: 'folder-opened', title: 'Reveal draft', onClick: () => ctx.os.revealPath(path) }),

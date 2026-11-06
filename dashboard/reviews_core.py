@@ -177,6 +177,7 @@ def _entry_row(base: Path, key: str, e: dict) -> dict:
         "harvested": bool(e.get("harvested")),
         "theme": e.get("theme"),
         "chat": e.get("chat"),
+        "session": e.get("hermesSession"),
         "updatedAt": e.get("updatedAt", ""),
         "priority": e.get("priority", 999),
         "reviewUrl": e.get("reviewUrl"),
@@ -448,6 +449,31 @@ def apply_status(keys: list[str], status: str, reason: str | None = None, *, sou
                     for ev in events:
                         fh.write(json.dumps(ev, ensure_ascii=False) + "\n")
     return changed
+
+
+SESSION_RE = re.compile(r"^[\w.:-]{1,100}$")
+
+
+def set_session(key: str, session: str | None) -> dict:
+    """Link (or, with None, unlink) the Hermes chat session that discusses this review."""
+    if not KEY_RE.match(key):
+        raise ValueError("bad key")
+    if session is not None and not SESSION_RE.match(session):
+        raise ValueError("bad session id")
+    base = review_dir()
+    if not (base / "state.json").is_file():
+        raise LookupError("no state.json")
+    with _locked(base):
+        state = _load_state(base)
+        e = state.get(key)
+        if not isinstance(e, dict):
+            raise LookupError(f"no such review: {key}")
+        if session:
+            e["hermesSession"] = session
+        else:
+            e.pop("hermesSession", None)
+        _write_atomic(base / "state.json", json.dumps(state, indent=2, ensure_ascii=False) + "\n")
+    return {"key": key, "session": session}
 
 
 # ── read models ─────────────────────────────────────────────────────────────────────────────

@@ -17,7 +17,7 @@ Data lives in `~/review-queue/`:
 - `state.json`: one entry per PR, keyed `<repo>#<number>`:
   `{ "jira": "CRY-1234", "tier": "standard", "reviewedSha": "<sha>", "draft": "<path>", "status": "pending|posted|discarded|merged|closed|skipped", "updatedAt": "<iso>" }`
   plus, for each draft, `"verdict"`, `"risk"` (`low|medium|high`) and `"blocking"` (the number of blockers), copied from the draft header.
-  An entry may also carry `"chat": "<session id>"`, written by the faish board: the PR's own review chat, and `"paused": "<iso>"`, written by the board when the user pauses a PR (see step 3). Never drop or change either when you update an entry; keep any other field you don't recognise as well.
+  An entry may also carry `"chat": "<session id>"`, written by the faish board: the PR's own review chat, `"hermesSession": "<stored session id>"`, written by the Reviews page: the Hermes chat that discusses the review, and `"paused": "<iso>"`, written by the board when the user pauses a PR (see step 3). Never drop or change either when you update an entry; keep any other field you don't recognise as well.
   The Hermes Reviews page (and its `rq-watch` watcher, `"statusSource": "reviews-watch"`) also sets `status` (merged, closed, discarded, posted, or back to pending) and records `prevStatus`, `statusAt`, `statusSource: "reviews-plugin"`, `statusEventId`, `statusReason`, `mergedBy`/`postedBy`. Treat its statuses exactly like ones you set; its `feedback.jsonl` events carry `"source": "reviews-plugin"` and follow the shapes in "Learning loop".
 - `drafts/<YYYY-MM-DD>/<repo>-<number>.md`: one draft per PR (format below).
 - `latest.md`: the digest from the last run.

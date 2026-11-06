@@ -75,6 +75,16 @@ async def set_status(body: StatusBody):
     return {"changed": _http(core.apply_status, body.keys, body.status, body.reason)}
 
 
+class SessionBody(BaseModel):
+    key: str
+    session: str | None = None
+
+
+@router.post("/session")
+async def set_session(body: SessionBody):
+    return _http(core.set_session, body.key, body.session)
+
+
 class RunBody(BaseModel):
     scope: str = "all"
 
