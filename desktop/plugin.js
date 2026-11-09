@@ -691,6 +691,8 @@ const SHORTCUTS = 'j/k move · x select · m merged · e dismiss · p posted · 
 function ReviewsPage({ ctx }) {
   const q = useQueue(ctx)
   const lq = useLive(ctx)
+  const run = useRun(ctx)
+  const running = !!run.data?.running
   const [f, setF] = useState(() => ({ repo: '', verdict: '', tier: '', archived: false, sort: 'tier', autoArchive: false, ...ctx.storage.get('filters', {}), text: '' }))
   const [sel, setSel] = useState(() => ctx.storage.get('selected', null))
   const [checked, setChecked] = useState(() => new Set())
