@@ -5,7 +5,7 @@ description: >
   (tickets in review on your board), finds their open PRs, triages them by risk, and drafts reviews with codeowner-review. Drafts are NEVER posted without the
   user's explicit approval. Use when the user says "/review-queue", "review queue", "what's in my
   review queue", "post the review for <repo>#<n>", or "discard <repo>#<n>". `/review-queue run` is
-  the headless mode `run.sh` starts on demand (the Reviews page buttons). `/review-queue run co` is the same, limited to the codeowner review status.
+  the headless mode `run.sh` starts on demand (the Reviews page buttons). `/review-queue run co` is the same, limited to the codeowner review status. `/review-queue add <pr-url>` reviews one PR that is not on the board.
 ---
 
 # Review Queue
@@ -74,6 +74,15 @@ You are running unattended. **Never post, approve, comment, push, or transition 
    Each subagent writes its own draft file and returns only a 3-line summary (verdict and risk, finding counts, draft path), so your context stays small. Write `state.json` after every batch, so a crash keeps the finished work.
 6. **Write the draft** to `drafts/<today>/<repo>-<n>.md` using the format below, update `state.json` (status `pending`), and log any failures (record the PR with status `skipped` and the reason).
 7. **Write `latest.md`**, the digest: one table sorted by tier (sensitive first) then age, with columns: PR link, Jira key, author, tier, verdict (`looks good` / `has comments` / `blocking`), risk, findings (`B/M/m/n`), and the draft path. After the table, a `## Not reviewed` section with one line per bucket from step 2 (`PR merged`, listing each ticket with its merged PR; `PR closed`; `No PR`), plus `Paused (N): <keys>`, own tickets skipped and draft PRs, then a `## Failures` section. Finish with one line: `N new · M re-reviewed · K unchanged · P paused`.
+
+### `add <pr-url>` (one PR, headless)
+
+The Reviews page's "Add PR" starts this: review one PR that is **not** on the board, so there is no ticket and no `<jql>`. Same rules as `run` (unattended, read-only `gh`, shell rules, writes only under `~/review-queue/`). Parse `<owner>/<repo>/pull/<n>` from the URL and use that owner in place of `<org>` for every `gh` call (it may differ from `<org>`). Then:
+
+- Skip steps 1 and 2 and every skip rule of step 2 (own PRs, drafts, already approved, paused): the user asked for this PR by name. Refuse only if the PR is not open: say so on one line and write nothing.
+- Step 0 (learnings) applies. Run step 3's "unchanged" and "new commits" logic if `state.json` already has this key (same `reviewedSha`: do nothing and say so; new commits: change-only review), otherwise a full review. Step 4 triage, step 5 (one review, no batching; leave the Jira summary and description out of the intent check, and use the PR title and body alone) and step 6 as usual.
+- The entry gets `"source": "manual"` and `"jira": null`; keep both on later updates. Never write `latest.md` (it is the board digest). Everything else in the entry and the draft is as in `run`.
+- Finish with one line: `Reviewed <repo>#<n>: <verdict> · <risk>`.
 
 ### Comment style
 

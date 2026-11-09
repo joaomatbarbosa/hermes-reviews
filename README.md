@@ -53,6 +53,7 @@ shows the verdict, risk and finding counts. Older drafts keep their own sections
   in but not sent, and the skill shows the exact text before posting anything.
 - **Review chat.** When the board recorded the PR's Claude Code session (`chat` in `state.json`), copies the
   `claude --resume` command that reopens it, from the right folder.
+- **Add PR.** For a PR that is not on the board: the **Add PR** button (or `a`) takes a GitHub link and starts `run.sh --pr <url>`, which runs the skill's `add <pr-url>` mode on that one PR (no Jira, no `latest.md`). The entry is tagged `"source": "manual"` and appears in the list when the draft is done. One run at a time, like the other buttons.
 - **Digest.** The notebook button shows `latest.md`.
 - The status-bar count leaves out PRs that are already merged or closed.
 
@@ -89,7 +90,7 @@ concurrent headless run's work is never overwritten with a stale copy.
 | `queue/config.example.md` | Template for `~/review-queue/config.md`: Jira cloudId, JQL, GitHub org and login |
 | `desktop/plugin.js` | The page: route + sidebar row, status-bar count, ⌘K commands. Plain ESM, no JSX, theme variables only |
 | `dashboard/reviews_core.py` | The queue logic, stdlib only: read models, live `gh` state, `apply_status`, chat lookup |
-| `dashboard/plugin_api.py` | The backend under `/api/plugins/reviews`: `GET /queue`, `/draft?key=`, `/live[?refresh=1]`, `/chat?key=`, `POST /status {keys, status, reason?}` |
+| `dashboard/plugin_api.py` | The backend under `/api/plugins/reviews`: `GET /queue`, `/draft?key=`, `/live[?refresh=1]`, `/chat?key=`, `POST /add {url}`, `POST /status {keys, status, reason?}` |
 | `scripts/rq-watch.py` | The no-LLM watcher |
 | `scripts/install.sh` | Machine setup (skills, queue folder, plugin, launchd) |
 | `scripts/launchd/` | The launchd job template for the watcher |

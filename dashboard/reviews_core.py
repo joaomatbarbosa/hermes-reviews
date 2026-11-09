@@ -597,10 +597,28 @@ def run_status() -> dict:
     return {"running": False}
 
 
-def run_start(scope: str) -> dict:
+PR_URL_RE = re.compile(r"^https://github\.com/([\w.-]+)/([\w.-]+)/pull/(\d+)(?:[/?#].*)?$")
+
+
+def parse_pr_url(url: str) -> tuple[str, str, int]:
+    m = PR_URL_RE.match((url or "").strip())
+    if not m:
+        raise ValueError("not a GitHub PR link (expected https://github.com/<owner>/<repo>/pull/<n>)")
+    return m.group(1), m.group(2), int(m.group(3))
+
+
+def add_pr(url: str) -> dict:
+    """Review one PR that is not on the board: starts `run.sh --pr <url>` (the skill's `add` mode)."""
+    owner, repo, n = parse_pr_url(url)
+    clean = f"https://github.com/{owner}/{repo}/pull/{n}"
+    st = run_start("pr", extra=["--pr", clean])
+    return {**st, "key": f"{repo}#{n}", "url": clean}
+
+
+def run_start(scope: str, extra: list[str] | None = None) -> dict:
     """Start `run.sh` detached: a full run, or `co` for the codeowner review status only. One at a time."""
     global _run_proc
-    if scope not in RUN_SCOPES:
+    if scope not in RUN_SCOPES and not (scope == "pr" and extra):
         raise ValueError(f"unknown scope: {scope}")
     base = review_dir()
     script = base / "run.sh"
@@ -613,7 +631,7 @@ def run_start(scope: str) -> dict:
     log.mkdir(parents=True, exist_ok=True)
     with open(log / "launch.out", "ab") as out:
         _run_proc = subprocess.Popen(
-            ["/bin/bash", str(script), *RUN_SCOPES[scope]],
+            ["/bin/bash", str(script), *(extra or RUN_SCOPES[scope])],
             cwd=str(base), stdout=out, stderr=out, stdin=subprocess.DEVNULL, start_new_session=True,
         )
     started = _now()

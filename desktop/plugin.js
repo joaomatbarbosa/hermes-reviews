@@ -249,6 +249,21 @@ async function startRun(ctx, scope) {
   }
 }
 
+const PR_URL = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+/
+
+// Review one PR that is not on the board: the backend starts a headless review of that link.
+async function addPr(ctx, url) {
+  try {
+    const st = await ctx.rest('/add', { method: 'POST', body: { url } })
+    queryClient.setQueryData([ctx.source, 'run'], { running: true, scope: 'pr', startedAt: st.startedAt })
+    host.notify({ kind: 'info', message: `Reviewing ${st.key}… it shows up here when the draft is ready.` })
+    return true
+  } catch (err) {
+    host.notify({ kind: 'error', message: `Could not add the PR: ${err?.message || err}` })
+    return false
+  }
+}
+
 const refreshAll = ctx => queryClient.invalidateQueries({ queryKey: [ctx.source] })
 
 async function refreshLive(ctx) {
@@ -562,6 +577,29 @@ function DismissForm({ onSubmit, onCancel }) {
     h(IconBtn, { onClick: onCancel }, 'Cancel'))
 }
 
+function AddForm({ ctx, onDone }) {
+  const [url, setUrl] = useState('')
+  const ref = useRef(null)
+  useEffect(() => { ref.current?.focus() }, [])
+  const ok = PR_URL.test(url.trim())
+  const submit = async () => { if (ok && await addPr(ctx, url.trim())) onDone() }
+  return h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px 0 12px' } },
+    h('input', {
+      ref,
+      value: url,
+      placeholder: 'Paste a PR link: https://github.com/owner/repo/pull/123',
+      onChange: e => setUrl(e.target.value),
+      onKeyDown: e => {
+        if (e.key === 'Enter') submit()
+        if (e.key === 'Escape') onDone()
+        e.stopPropagation()
+      },
+      style: { flex: 1, minWidth: 0, height: 24, padding: '0 8px', fontSize: 12, color: T.t1, background: tint(T.t1, 7), border: 0, borderRadius: 4, outline: 'none' }
+    }),
+    h(IconBtn, { icon: 'play', color: T.accent, disabled: !ok, title: 'Review this PR', onClick: submit }, 'Review'),
+    h(IconBtn, { onClick: onDone }, 'Cancel'))
+}
+
 function Detail({ ctx, k, lv, asking, setAsking }) {
   const q = useQuery({ queryKey: [ctx.source, 'draft', k], queryFn: () => ctx.rest(`/draft?key=${encodeURIComponent(k)}`), refetchInterval: 30_000 })
   const [mode, setMode] = useState('report')
@@ -648,7 +686,7 @@ function sortRows(rows, sort) {
   return [...rows].sort((a, b) => (a.status !== 'pending') - (b.status !== 'pending') || cmp(a, b))
 }
 
-const SHORTCUTS = 'j/k move · x select · m merged · e dismiss · p posted · u undo · o open PR · / search · r refresh GitHub'
+const SHORTCUTS = 'j/k move · x select · m merged · e dismiss · p posted · u undo · o open PR · / search · r refresh GitHub · a add a PR'
 
 function ReviewsPage({ ctx }) {
   const q = useQueue(ctx)
@@ -658,6 +696,7 @@ function ReviewsPage({ ctx }) {
   const [checked, setChecked] = useState(() => new Set())
   const [asking, setAsking] = useState(false)
   const [digest, setDigest] = useState(false)
+  const [adding, setAdding] = useState(false)
   const searchRef = useRef(null)
   const rootRef = useRef(null)
   const set = p => setF(prev => {
@@ -728,8 +767,9 @@ function ReviewsPage({ ctx }) {
           if (url) ctx.os.openExternal(url)
         },
         r: () => refreshLive(ctx),
+        a: () => setAdding(true),
         '/': () => searchRef.current?.focus(),
-        Escape: () => { setChecked(new Set()); setAsking(false) }
+        Escape: () => { setChecked(new Set()); setAsking(false); setAdding(false) }
       }[ev.key]
       if (act) { ev.preventDefault(); act() }
     }
@@ -745,9 +785,11 @@ function ReviewsPage({ ctx }) {
 
   return h('div', { ref: rootRef, style: { display: 'grid', gridTemplateColumns: '360px minmax(0, 1fr)', height: '100%', minHeight: 0 } },
     h('div', { style: { display: 'flex', flexDirection: 'column', minHeight: 0, borderRight: `1px solid ${T.line}` } },
-      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, padding: '10px 10px 0 12px' } },
+      h('div', { style: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, padding: '10px 10px 0 12px' } },
         h(IconBtn, { icon: running ? 'sync' : 'play', color: T.accent, disabled: running, title: 'Review every ticket in review on the board', onClick: () => startRun(ctx, 'all') }, running && run.data.scope === 'all' ? 'Running…' : 'Run the reviews'),
-        h(IconBtn, { icon: running ? 'sync' : 'play', color: T.accent, disabled: running, title: 'Review only the tickets in the codeowner review column', onClick: () => startRun(ctx, 'co') }, running && run.data.scope === 'co' ? 'Running…' : 'Run codeowner review only')),
+        h(IconBtn, { icon: running ? 'sync' : 'play', color: T.accent, disabled: running, title: 'Review only the tickets in the codeowner review column', onClick: () => startRun(ctx, 'co') }, running && run.data.scope === 'co' ? 'Running…' : 'Run codeowner review only'),
+        h(IconBtn, { icon: 'add', disabled: running, title: 'Review a PR that is not on the board: paste its link (a)', onClick: () => setAdding(true) }, running && run.data.scope === 'pr' ? 'Reviewing…' : 'Add PR')),
+      adding ? h(AddForm, { ctx, onDone: () => setAdding(false) }) : null,
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 4, padding: '8px 10px 6px 12px', fontSize: 11, color: T.t3 } },
         h('span', { title: SHORTCUTS, style: { flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
           `${pending} pending${stale ? ` · ${stale} stale` : ''} · ${entries.length - entries.filter(e => e.status === 'pending').length} archived`, liveNote ? ` · ${liveNote}` : ''),
