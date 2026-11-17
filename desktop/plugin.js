@@ -538,22 +538,66 @@ const NAMED_COLOR = {
 const POSTED = new Set(['proposed review body', 'inline comments'])
 const COLLAPSED = new Set(['evidence'])
 const sectionColor = (name, i) => NAMED_COLOR[name.toLowerCase()] || SECTION_COLOR[i % SECTION_COLOR.length]
-const postedTag = name => (POSTED.has(name.toLowerCase()) ? { label: 'posted to GitHub', c: 'var(--ui-accent)' } : null)
+// Only these sections go to GitHub, and only once the review is actually posted; until then the badge says what a post would send.
+const postedTag = (name, status) => (POSTED.has(name.toLowerCase())
+  ? (status === 'posted' ? { label: 'posted to GitHub', c: 'var(--ui-accent)' } : status === 'pending' ? { label: 'not posted yet', c: 'var(--ui-text-tertiary)' } : null)
+  : null)
 
 const SECTION_COLOR = ['var(--ui-green)', 'var(--ui-orange)', 'var(--ui-blue)', 'var(--ui-purple)', 'var(--ui-cyan)', 'var(--ui-yellow)', 'var(--ui-red)']
 const slug = (s, i) => `rv-${i}-${s.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
 
-function Inlines({ items, openLink }) {
-  if (!items.length) return null
-  return h('div', { style: { display: 'grid', gap: 8 } }, items.map((c, i) => {
-    const sev = SEVERITY[String(c.severity || '').toLowerCase()] || T.t3
-    return h('div', { key: i, style: { padding: '8px 10px', borderRadius: 4, background: tint(T.t1, 6) } },
-      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, fontSize: 11, color: T.t3 } },
-        c.severity ? h(Pill, { color: sev, solid: true }, c.severity) : null,
-        c.id != null && typeof c.id === 'string' ? h('span', { style: { fontWeight: 600, color: T.t2 } }, c.id) : null,
-        h('code', { style: { fontSize: 11 } }, `${c.path || '(general)'}${c.line ? ':' + c.line : ''}`)),
-      h(Markdown, { text: c.body, openLink }))
+const selectedInlinePrompt = (r, path, items) => {
+  const positions = items.map(({ position }) => position).join(', ')
+  const selected = items.map(({ position, comment }) => ({
+    position,
+    id: comment.id,
+    path: comment.path,
+    line: comment.line,
+    severity: comment.severity,
+    body: comment.body
   }))
+  return `Load the ${SKILL} skill and follow its Mode 2 "post" for ${r.key}. The draft is ${path}. Check the PR head still matches the draft. Submit an inline-only COMMENT with an empty review body and only inline comments ${positions} from the draft, matching this exact selection. Do not include the proposed review body or any other inline comments.\n\nSelected inline comments:\n${JSON.stringify(selected, null, 2)}\n\nShow me the exact payload (empty review body plus only these comments), then wait for my explicit confirmation before posting.`
+}
+
+function InlineReview({ ctx, r, path, items, openLink }) {
+  const [selected, setSelected] = useState(() => new Set(items.map((_, i) => i)))
+  const signature = JSON.stringify(items)
+  useEffect(() => { setSelected(new Set(items.map((_, i) => i))) }, [signature])
+  const toggle = i => setSelected(prev => {
+    const next = new Set(prev)
+    next.has(i) ? next.delete(i) : next.add(i)
+    return next
+  })
+  const chosen = items.flatMap((comment, index) => selected.has(index) ? [{ position: index + 1, comment }] : [])
+  const submit = () => {
+    if (chosen.length) openInChat(ctx, selectedInlinePrompt(r, path, chosen))
+  }
+  return h('div', { style: { display: 'grid', gap: 8 } },
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: T.t3 } },
+      h('span', { style: { flex: 1 } }, `${selected.size} of ${items.length} selected`),
+      h(IconBtn, { onClick: () => setSelected(new Set(items.map((_, i) => i))) }, 'All'),
+      h(IconBtn, { onClick: () => setSelected(new Set()) }, 'None'),
+      r.status === 'pending' && path
+        ? h(IconBtn, { icon: 'comment-discussion', color: T.accent, disabled: !chosen.length, title: 'Prepare a review with only the selected inline comments', onClick: submit }, `Comment selected${chosen.length ? ` (${chosen.length})` : ''}`)
+        : null),
+    items.map((c, i) => {
+      const sev = SEVERITY[String(c.severity || '').toLowerCase()] || T.t3
+      return h('div', { key: `${c.id || ''}-${c.path || ''}-${c.line || ''}-${i}`, style: { display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', borderRadius: 4, background: tint(T.t1, 6) } },
+        h('input', {
+          type: 'checkbox',
+          checked: selected.has(i),
+          'aria-label': `Include ${c.severity || 'inline'} comment ${c.id || i + 1}`,
+          onChange: () => toggle(i),
+          style: { margin: '2px 0 0', flexShrink: 0, accentColor: T.accent, cursor: 'pointer' }
+        }),
+        h('div', { style: { minWidth: 0, flex: 1 } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, fontSize: 11, color: T.t3 } },
+            c.severity ? h(Pill, { color: sev, solid: true }, c.severity) : null,
+            c.id != null && typeof c.id === 'string' ? h('span', { style: { fontWeight: 600, color: T.t2 } }, c.id) : null,
+            h('code', { style: { fontSize: 11 } }, `${c.path || '(general)'}${c.line ? ':' + c.line : ''}`)),
+          h(Markdown, { text: c.body, openLink }))
+      )
+    }))
 }
 
 function DismissForm({ onSubmit, onCancel }) {
@@ -633,7 +677,7 @@ function Detail({ ctx, k, lv, asking, setAsking }) {
           ...actions,
           h('span', { style: { width: 1, margin: '4px 4px', background: T.line } }),
           r.url ? h(IconBtn, { icon: 'link-external', title: 'Open PR (o)', onClick: () => openLink(r.url) }, 'Open PR') : null,
-          r.status === 'pending' && path ? h(IconBtn, { icon: 'comment-discussion', title: 'Start a chat that posts this review through the skill (you confirm the text first)', onClick: () => openInChat(ctx, postPrompt(r, path)) }, 'Post in chat') : null,
+          r.status === 'pending' && path ? h(IconBtn, { icon: 'comment-discussion', title: 'Post the full review in chat, including all inline comments', onClick: () => openInChat(ctx, postPrompt(r, path)) }, 'Post full review') : null,
           path ? h(IconBtn, { icon: 'comment-discussion', title: r.session ? 'Reopen the Hermes chat that discusses this review' : 'Start a Hermes chat for this review: push back, check follow-ups, ask if it can merge', onClick: () => openReviewSession(ctx, r, path) }, r.session ? 'Open review session' : 'Start review session') : null,
           r.chat ? h(IconBtn, { icon: 'terminal', title: 'Copy the command that resumes the Claude Code session this review came from', onClick: () => copyResume(ctx, k) }, 'Review chat') : null,
           h(IconBtn, { icon: 'copy', title: 'Copy draft path', onClick: () => ctx.os.writeClipboard(path).then(ok => host.notify({ kind: ok ? 'info' : 'error', message: ok ? 'Draft path copied' : 'Clipboard unavailable' })) }),
@@ -662,8 +706,8 @@ function Detail({ ctx, k, lv, asking, setAsking }) {
         h('nav', { style: { position: 'sticky', top: 120, display: 'grid', gap: 4 } }, navItems.map((n, i) =>
           h('button', { key: n.id, type: 'button', onClick: () => go(n.id), style: { textAlign: 'left', padding: '5px 8px', border: 0, borderLeft: `3px solid ${n.c}`, borderRadius: 3, fontSize: 11.5, cursor: 'pointer', color: T.t2, background: tint(T.t1, 6) } }, `${i + 1} ${n.name}`))),
         h('div', { style: { minWidth: 0 } },
-          sections.map((s, i) => h(Card, { key: s.name, id: slug(s.name, i), n: i + 1, title: s.name, accent: sectionColor(s.name, i), tag: postedTag(s.name), collapsed: COLLAPSED.has(s.name.toLowerCase()) }, h(Markdown, { text: s.body, openLink }))),
-          hasInline ? h(Card, { id: 'rv-inline', n: navItems.length, title: `Inline comments (${d.inline.length})`, accent: 'var(--ui-red)', tag: postedTag('inline comments') }, h(Inlines, { items: d.inline, openLink })) : null,
+          sections.map((s, i) => h(Card, { key: s.name, id: slug(s.name, i), n: i + 1, title: s.name, accent: sectionColor(s.name, i), tag: postedTag(s.name, r.status), collapsed: COLLAPSED.has(s.name.toLowerCase()) }, h(Markdown, { text: s.body, openLink }))),
+          hasInline ? h(Card, { id: 'rv-inline', n: navItems.length, title: `Inline comments (${d.inline.length})`, accent: 'var(--ui-red)', tag: postedTag('inline comments', r.status) }, h(InlineReview, { ctx, r, path, items: d.inline, openLink })) : null,
           d.inlineBad ? h('div', { style: { color: T.t3, fontSize: 12 } }, 'The inline comments block does not parse as JSON; see the MD view.') : null)))
 }
 

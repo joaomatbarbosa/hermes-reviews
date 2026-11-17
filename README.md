@@ -49,8 +49,7 @@ shows the verdict, risk and finding counts. Older drafts keep their own sections
   the skill has harvested its outcome, so the learning loop keeps it.
 - **Bulk and keyboard.** Tick rows (or ⌘/⇧-click) for bulk Merged / Dismiss. Keys: `j`/`k` move, `x` select,
   `m` merged, `e` dismiss, `p` posted, `u` undo, `o` open PR, `/` search, `r` re-check GitHub, `Esc` clear.
-- **Post in chat.** Opens a new chat with a prompt that posts the review through the skill. The prompt is typed
-  in but not sent, and the skill shows the exact text before posting anything.
+- **Post comments.** Inline comments are checkable (all selected by default); use **All** / **None** or choose a subset, then **Comment selected** to open a chat with only those inline comments and no review body. The skill still shows the exact payload for confirmation before posting. **Post full review** includes the review body and every inline comment.
 - **Review chat.** When the board recorded the PR's Claude Code session (`chat` in `state.json`), copies the
   `claude --resume` command that reopens it, from the right folder.
 - **Add PR.** For a PR that is not on the board: the **Add PR** button (or `a`) takes a GitHub link and starts `run.sh --pr <url>`, which runs the skill's `add <pr-url>` mode on that one PR (no Jira, no `latest.md`). The entry is tagged `"source": "manual"` and appears in the list when the draft is done. One run at a time, like the other buttons.
